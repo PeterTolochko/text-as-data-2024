@@ -1,0 +1,298 @@
+---
+title: "day_1_coding_session Basics of text analysis"
+author: "Fabienne Lind"
+date: "2023-06-19"
+output: html_document
+---
+
+### Data
+
+For this tasks, we will work with an example text data set, headlines from news articles about migration. The data set is a subset of the [REMINDER media corpus](https://doi.org/10.11587/IEGQ1B).
+
+Let's load the data first and take a look. Each row represents one news article.
+
+```{r}
+
+articles <- read.csv("https://raw.githubusercontent.com/fabiennelind/Workshop_Multilingual-Text-Analysis_and_Comparative-Research/master/data/multilingual_data_annotated_translated.csv?token=AH2Y4HB34Z25K53J2X7QEV3BS7ADO")
+
+```
+
+The data includes headlines in three languages published in three countries.
+
+```{r}
+table(articles$country)
+```
+
+For our exercise, we only work with the English headlines (published in UK newspapers). Thus, we first need to apply a filter.
+To select a subset of the data, we can use for example `subset`. We save the English subset in the dataframe object called `articles_en`.
+
+```{r}
+articles_en <- subset(articles, country == "UK")
+```
+
+Let us first inspect the data
+
+```{r}
+head(articles_en)
+```
+
+### String manipulation with R
+
+We will start with basic string manipulation with R. R stores the basic string in a character vector. 
+With `class` you can check if you are actually dealing with a character vector.
+`length` gets the number of items in the vector. 
+With `[3]` we can get the third item in the vector. 
+With `nchar` we can retrieve the number of characters in the vector (here in the third item of the vector).
+
+Let us now inspect the column `headline`, the column with our text. 
+
+```{r}
+class(articles_en$headline) 
+length(articles_en$headline)
+articles_en$headline[3]
+nchar(articles_en$headline[3])
+```
+
+It is possible to work with multiple strings at once.
+
+```{r}
+nchar(articles_en$headline[1:10])
+sum(nchar(articles_en$headline[1:10]))
+max(nchar(articles_en$headline[1:10]))
+```
+
+The function `paste` can be used to merge several strings
+
+```{r}
+articles_en$headline[1]
+articles_en$headline[2]
+ paste(articles_en$headline[1], articles_en$headline[2], sep='___')
+ 
+ articles_en$full_article <- paste(articles_en$headline, articles_en$source)
+ 
+```
+
+As we will see later, it is often convenient to convert all words to lowercase or uppercase.
+
+```{r}
+tolower(articles_en$headline[1])
+toupper(articles_en$headline[1])
+```
+
+We can grab substrings with `substr`. The first argument is the string, the second is the beginning index (starting from 1), and the third is final index.
+
+```{r}
+substr(articles_en$headline[1], 1, 2)
+substr(articles_en$headline[1], 1, 10)
+```
+
+**Exercise:**
+
+How do you extract the first letter of each headline?
+
+```{r}
+# Solution
+
+
+
+```
+
+
+This is useful when working with date strings as well:
+
+```{r}
+articles_en$years <- substr(articles_en$publication_date, 1, 4) # years
+articles_en$months <- substr(articles_en$publication_date, 6, 7) # months
+```
+
+**Exercise:**
+
+What year was the oldest article published?
+
+```{r}
+# Solution
+
+
+```
+
+
+Let's now inspect the data more in detail. The data was collected by searching with the following search string in newspaper databases: 
+
+asyl* OR immigrant* OR immigrat* OR migrant* OR migrat* OR refugee* OR
+foreigner* OR "undocumented worker*" OR "guest worker*" OR "foreign worker*"
+OR emigrat* OR "freedom of movement" OR "free movement"
+
+An article became part of the dataset, if it included at least one of the keywords. The keyword(s) could be in the headline but also in the main text. In the dataset we are working with right now, we have only the headlines.
+
+We are wondering how many of the headlines mention the term `refugee`. We can use the `grep` command to identify these. `grep` returns the index where the word occurs.
+
+
+```{r}
+grep('asyl', articles_en$headline)
+```
+
+`grepl` returns `TRUE` or `FALSE`, indicating whether each element of the character vector contains that particular pattern.
+
+```{r}
+grepl("refugee", articles_en$headline[1:30])
+```
+
+**Exercise:**
+
+Check if the headline of the article in row 435 includes the word refugee.
+
+```{r}
+# Solution
+
+
+```
+
+
+
+Going back to the full data set, we can use the results of `grep` to get particular rows. First, check how many headlines mention the word "refugee".
+
+```{r}
+nrow(articles_en)
+grep('refugee', articles_en$headline)
+length(grep('refugee', articles_en$headline))
+
+```
+
+It is important to note that matching is case-sensitive. You can use the `ignore.case` argument to match to a lowercase version.
+
+```{r}
+grep('refugee', articles_en$headline)
+length(grep('refugee', articles_en$headline, ignore.case = TRUE))
+```
+
+
+Now let's try to identify what headlines mention refugee and store them into another data frame. 
+
+```{r}
+refugee_headlines <- articles_en[grep('refugee', articles_en$headline, ignore.case=TRUE),]
+
+```
+
+
+
+**Exercise:**
+
+Pick another keyword of the original search string. How many headlines mention your specific keyword?
+
+```{r}
+# Solution
+
+
+
+```
+
+# Text representation in R
+
+We work now with the `quanteda` package which is an R package specialized for text analysis.
+
+```{r}
+install.packages(c( 
+    "quanteda", "quanteda.textplots", 
+    "quanteda.textstats"))
+```
+
+
+```{r}
+library(quanteda)
+library(quanteda.textplots)
+library(quanteda.textstats)
+```
+
+Let's create some exemplary data.
+
+```{r}
+
+text1 <- "Ah, you haven't tried my favorite food in the Netherlands? It is stroopwafels! The perfect combination of crispy, caramel-infused waffles with a gooey, sweet center. They're simply irresistible!"
+text2 <- "You know, the herring in the Netherlands is truly something special! The freshness and delicate flavor make each bite a delightful experience. It's no wonder it's considered a beloved Dutch delicacy!"
+
+
+food <- data.frame(text =c(text1, text2))
+
+
+```
+
+In quanteda we first store our texts in a corpus object with the function corpus.
+
+```{r}
+food_corpus <- corpus(food, text ="text")
+```
+
+Let's tokenize the text. 
+
+```{r}
+food_toks <- tokens(food_corpus)
+food_toks
+```
+
+Now, we will use the function dfm to create a document-term matrix (DTM). Quanteda uses the word features as a more general label for the terms (why: it is e.g. possible to include n-grams as features)
+
+```{r}
+food_dfm <- dfm(food_toks)
+```
+
+When we inspect the DFM, we see that it has 2 rows (=documents) and 52 columns (features).
+What does the sparsity relate to? Sparsity indicates the percentage of empty entries in the document-feature matrix. Here we have a highly sparse matrix. This has implications for computational efficiency and memory usage.
+
+```{r}
+food_dfm
+```
+
+What is the most frequent feature? What is the 5th most frequent feature?
+
+```{r}
+textstat_frequency(food_dfm)[c(1, 5), ]
+
+```
+
+Another way to visualize the most frequent features. Here, only features that occur at least twice are included.
+
+```{r}
+textplot_wordcloud(food_dfm, min_count = 2)
+```
+
+**Exercise:**
+
+Repeat the steps with the refugees_headlines dataframe.
+
+- Apply the corpus function 
+- Tokenize the headlines
+- Create a dfm
+- What are the top 3 most frequent features?
+- Create a word cloud with all features that occure at least 10 times.
+
+```{r}
+#Solution
+
+
+
+```
+
+Note: When we inspect the DFM, we see that it has 500 rows (=documents) and 3,403 columns (features).
+What does the sparsity relate to? Sparsity indicates the percentage of empty entries in the document-feature matrix. Here we have a highly sparse matrix. This has implications for computational efficiency and memory usage.
+
+
+# Weighting a dfm: tf-idf
+
+It can be useful to weight the words so more informative words have a higher weight than less informative ones.
+
+tf-idf = term frequency inverse document frequency
+
+The term frequency is corrected for how often it occurs in all documents. Put differently: It calculates a weight for each term in a document based on its frequency within the document and its importance in the entire corpus of documents.
+
+Outcomes: 
+helps to highlight terms that are significant within a specific document.
+can effectively reduce the dimensionality of a document-term matrix
+The less frequent a term is, the higher the weight will be
+
+```{r}
+ref_tfidf <- dfm_tfidf(ref_dfm, scheme_tf="prop", smoothing=1)
+ref_tfidf
+```
+
+
+
