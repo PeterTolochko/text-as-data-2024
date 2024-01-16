@@ -1,0 +1,229 @@
+
+---
+title: "Unsupervised Methods"
+author: "Petro Tolochko & Fabienne Lind "
+date: "Jan 2024"
+output:
+  html_document
+---
+
+# LDA Topic Modeling
+
+
+```{r}
+library(topicmodels)
+library(quanteda)
+library(dplyr)
+library(tibble)
+```
+
+We work with a set of tweets this time. They were selected by searching for #oscarssowhite in a time period around the oscars 2020 and the oscars 2023.
+
+```{r}
+oscars <- read.csv("https://raw.githubusercontent.com/fabiennelind/text-as-data-in-R/main/data/OscarsSoWhite_sample.csv")
+
+```
+
+
+Let's inspect the text of some tweets.
+
+```{r}
+#colnames(oscars)
+head(oscars$text) #
+```
+
+We first do some preprocessing.
+
+```{r}
+oscarscorpus <- corpus(oscars$text)
+toks_oscars <- tokens(oscarscorpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbol = TRUE)
+
+toks_oscars <- tokens_select(toks_oscars, pattern = c(stopwords("en"),"*-time", "updated-*", "gmt", "bst"), selection = "remove")
+print(toks_oscars)
+
+```
+
+
+Let's create a dfm. 
+
+```{r}
+dfm_oscars <- dfm(toks_oscars) 
+```
+
+And inspect the dfm by plotting a wordcloud. 
+
+```{r}
+library(quanteda.textplots)
+textplot_wordcloud(dfm_oscars, min_count = 5)
+```
+Why could #oscarssowhite be so prominent? What does rt mean? How do we deal with these highly frequent features?
+
+**Exercise:**
+
+Remove the hashtag "#oscarssowhite" from the token object, create a new dfm and visualize the hashtags again.
+
+```{r}
+#Solution
+
+
+```
+
+
+The number of topics in a topic model is somewhat arbitrary, so you need to play with the number of topics to see if you get anything more meaningful. We start here with 10 topics. The LDA function uses the topicmodels package.
+
+
+```{r}
+# estimate LDA with K topics
+K <- 10
+lda <- LDA(dfm_oscars, k = K, method = "Gibbs", 
+                control = list(verbose=25L, seed = 123, burnin = 100, iter = 500))
+```
+
+**Exercise:**
+
+Oh an error occurs.
+
+If you have zero value entries, you need to remove them before you can run the lda. So, we first remove the docs without words and run the lda code snipped again.
+
+
+```{r}
+#Solution
+
+
+```
+
+
+We can use `get_terms` to the get top `n` terms from the topic model per topic, This will help us interpret the results of the model.
+Check out the dataframe `terms` to see the top words.
+
+```{r}
+terms <- get_terms(lda, 10) # get the top 10 terms per topic 
+terms[,1]
+
+```
+
+#Let's inspect the top words per topic and let's try to label them
+
+- Can you identfy a meaningful label for some topics?
+
+
+
+
+
+With this code we get the probability per topic per document. and calculate also which topic is the most likely per document. 
+
+```{r}
+#get the topic probabilities per topic
+topics <- posterior(lda)$topics %>% 
+  as_tibble() %>% 
+  rename_all(~paste0("Topic_", .))
+
+# Function to determine the column with the highest number per row
+getHighestColumn <- function(row) {
+  column_names <- colnames(topics)
+  highest_column <- column_names[which.max(row)]
+  return(highest_column)
+}
+
+# Apply the function to each row and assign the result to a new column
+topics$most_likely_topic <- apply(topics, 1, getHighestColumn)
+
+# Output the modified dataframe
+print(topics)
+
+#get the ids from the dfm 
+
+meta = docvars(dfm_oscars) %>% 
+  add_column(doc_id=docnames(dfm_oscars),.before=1)
+#cfreate a new dataframe with the ids and topic probabilities
+
+tpd <- bind_cols(meta, topics) 
+head(tpd)
+```
+
+
+**Exercise:**
+
+How do we now add the topic probabilities to the original dataframe oscars?
+
+
+```{r}
+#Solution
+
+
+```
+
+
+
+#Validation
+
+You can inspect if the words per topic point to a semantically coherent concept.
+You can check if the topic label that you assigned matches the content of documents where this topic is highly prevalent.
+
+
+
+
+# Number of k?
+
+Maybe the problem is in the K? We initially set k to 10. But how many topics to select? ***NOBODY KNOWS***.
+
+
+But there are several ways to get a better idea:
+
+1. Compare topic coherence metrics for different values of k
+
+https://ladal.edu.au/topicmodels.html
+
+CaoJuan2009: This metric, proposed by Cao et al. in 2009, evaluates topic coherence. Topic coherence measures how semantically coherent the words within a topic are. Higher values indicate more coherent topics. The metric calculates the average coherence score across all topics.
+
+Deveaud2014: This metric, proposed by Deveaud et al. in 2014, also evaluates topic coherence. It is an extension of the CaoJuan2009 metric and aims to improve upon its limitations. It computes the coherence score of each topic and returns the average coherence score across all topics.
+
+
+You want parameters that minimize Arun and CaoJuan, but you would want parameters that maximize Griffiths and Deveaud. 
+
+```{r}
+library(ldatuning)
+# create models with different number of topics
+result <- FindTopicsNumber(
+  dfm_oscars,
+  topics = seq(from = 2, to = 20, by = 1),
+  metrics = c("CaoJuan2009",  "Deveaud2014"), #String or vector of possible metrics: "Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"
+  method = "Gibbs",
+  control = list(seed = 77),
+  verbose = TRUE
+)
+
+```
+
+```{r}
+FindTopicsNumber_plot(result)
+```
+
+
+
+**Exercise:**
+
+Use one of the datasets that we worked with before and discover underlying topics.
+Consider first what features you want to focus at.
+
+```{r}
+#Solution
+
+```
+
+
+
+
+**Exercise:**
+
+1. What model would help us to compare the discourse from 2020 and 2023?
+
+2. How would you implement it? What R package can help?
+
+
+
+
+
+
+
+
