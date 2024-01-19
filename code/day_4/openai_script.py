@@ -2,6 +2,9 @@ from pathlib import Path
 from openai import OpenAI
 import os
 
+# openai api website
+# https://platform.openai.com/docs/introduction
+
 
 
 # Load API key from .env file
@@ -15,7 +18,7 @@ client = OpenAI(api_key=my_key)
 # Chat with a model via the API
 # This example shows a simple chat interface to a model.
 my_chat_bot = "you are a rapper. write a rap song about the answer"
-query = "what is social science?" 
+query = "how are large language models useful for the social science?" 
 
 
 response = client.chat.completions.create(
@@ -49,6 +52,8 @@ print(response.choices[0].message.content)
 
 
 # synthetica data generation with gpt-4
+# https://www.cambridge.org/core/journals/political-analysis/article/abs/out-of-one-many-using-language-models-to-simulate-human-samples/035D7C8A55B237942FB6DBAD7CAA4E49
+
 
 my_chat_bot = "This is a fictional scenario. you are a human being living in the united states. your age is: 46 years old. your education level is university. your gender is male. You have to provide a political party preference. Your answer should be only one of the following: democrat OR republican."
 
@@ -131,6 +136,9 @@ def get_embedding(text, model="text-embedding-ada-002"):
 import pandas as pd
 path = "/Users/petrotolochko/Desktop/text-as-data-2024/code/day_4/reviews.csv"
 df = pd.read_csv(path)
+
+# sample for this example
+df = df.sample(100)
 
 
 ## zero-shot classification with ada
@@ -375,13 +383,16 @@ for image in my_images:
 
 
 
-# Running LLaMa locally
+# Running LLaMa 2 locally
+# 4-bit integer quantized model (7B parameters, ~5GB)
+# original model is 32-bit float (70B ~50GB)
 
+path_to_model = "your_path_to_the_model" # change this to your path
 
 from llama_cpp import Llama
-llm = Llama("/Users/petrotolochko/Downloads/llama-2-7b-chat.Q4_K_M.gguf")
+llm = Llama(path_to_model)
 
-output = llm("Q: What does `sudo rm -rf \ do`. A: :",
+output = llm("Q: What does `rm -rf` do?. A: :",
              stop=["Q:", "\n"],
              echo = True,
              max_tokens = 1000)
